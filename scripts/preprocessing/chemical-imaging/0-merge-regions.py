@@ -6,6 +6,7 @@ from pathlib import Path
 from itertools import product
 import matplotlib.pyplot as plt
 import h5py
+import argparse
 
 
 @dataclass
@@ -15,8 +16,6 @@ class Patch:
     region: str
     col: int
     row: int
-    dx: int
-    dy: int
 
     def load(self, idxs=None):
         lut = sp.io.loadmat(self.path, variable_names=['dX', 'dY', 'r'])
@@ -31,18 +30,6 @@ class Patch:
         return r
 
 
-def load_wn(patches):
-    'Load wn (col names) & check that it is similar across all patches'
-    def load_single_wn(patch):
-        wn = sp.io.loadmat(patch.path, variable_names='wn')['wn'].ravel()
-        return wn
-
-    wn = load_single_wn(patches[0])
-    for patch in patches[1:]:
-        assert np.array_equal(wn, load_single_wn(patch))
-    return wn
-
-
 def map_loc_values_to_grid(paths):
     cols = set()
     rows = set()
@@ -53,6 +40,17 @@ def map_loc_values_to_grid(paths):
         rows.add(int(py))
 
     return sorted(rows), sorted(cols, reverse=True)
+
+
+def check_patches_assumptions(patches):
+    assert len(patches) > 0
+    nrows = max(p.row for p in patches) + 1
+    ncols = max(p.col for p in patches) + 1
+
+    all_grid_locs = set(product(range(nrows), range(ncols)))
+    for patch in patches:
+        all_grid_locs.remove((patch.row, patch.col))
+    assert len(all_grid_locs) == 0
 
 
 def load_patches(glob):
@@ -66,52 +64,89 @@ def load_patches(glob):
             py, px = re.search(r'\[(-?\d+)_(-?\d+)\]', path).groups()
             col, row = cols.index(int(px)), rows.index(int(py))
 
-            lut = sp.io.loadmat(path, variable_names=['dX', 'dY'])
-            dx = int(lut['dX'].item())
-            dy = int(lut['dY'].item())
-
             patch = Patch(
                 path=path,
                 slide=slide,
                 region=region,
-                dx=dx, dy=dy,
                 col=col, row=row
             )
 
             yield patch
 
-    patches = {(p.row, p.col): p for p in iterate(paths)}
-    assert len(set(p.dx for p in patches.values())) == 1
-    assert len(set(p.dy for p in patches.values())) == 1
+    patches = list(iterate(paths))
+    check_patches_assumptions(patches)
 
-    for key in product(range(len(rows)), range(len(cols))):
-        assert key in patches, f'Patch {key} missing'
+    return patches
 
-    return cols, rows, patches
+
+def load_patch_size(patches):
+    'Aumming patches are squares, get their length'
+
+    dx = load_key(patches, 'dX')
+    dy = load_key(patches, 'dY')
+    assert dx == dy
+    return dx
+
+
+def load_wn(patches):
+    'Load wn (col names) & check that it is similar across all patches'
+    def load_single_wn(patch):
+        wn = sp.io.loadmat(patch.path, variable_names='wn')['wn'].ravel()
+        return wn
+
+    wn = load_single_wn(patches[0])
+    for patch in patches[1:]:
+        assert np.array_equal(wn, load_single_wn(patch))
+    return wn
+
+
+def load_key(patches, key):
+    values = set()
+    values.update([
+        sp.io.loadmat(patch.path, variable_names=key)[key].item()
+        for patch
+        in patches
+        ])
+    assert len(values) == 1
+    return values.pop()
+
+
+def stitch_regions(outpath, glob):
+    patches = load_patches(glob)
+    nrows = max(p.row for p in patches) + 1
+    ncols = max(p.col for p in patches) + 1
+    patch_size = load_patch_size(patches)
+    wn = load_wn(patches)
+
+    shape = (nrows*patch_size, ncols*patch_size, len(wn))
+
+    with h5py.File(outpath, 'w') as f:
+        f.attrs['wavenumber'] = wn
+        f.attrs['model'] = load_key(patches, 'model')
+        grid = f.create_dataset('raw', shape)
+        for patch in patches:
+            col, row = patch.col, patch.row
+            irow = slice(patch_size*row, patch_size*(row + 1))
+            icol = slice(patch_size*col, patch_size*(col + 1))
+            grid[irow, icol] = patch.load()
 
 
 if __name__ == '__main__':
-    inroot = Path('data/chemical-images/0-upload-daylight-solutions')
-    outroot = Path('data/chemical-images/1-merged-regions')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('slide', type=int)
+    parser.add_argument('region')
+    args = parser.parse_args()
+    outdir = Path('./data/chemical-images/1-merged-regions/')
+    outdir.parent.mkdir(exist_ok=True, parents=True)
+    outpath = outdir/f'sample-slide-{args.slide}-region-{args.region}.h5ad'
 
-    cols, rows, patches = load_patches(inroot.glob('Slide1/RegionJ*'))
-    grid = np.zeros((len(rows)*480, len(cols)*480, 2))
-    for patch in patches.values():
-        dx, dy = patch.dx, patch.dy
-        col, row = patch.col, patch.row
-        grid[dx*row: dx*(row + 1), dy*col: dy*(col + 1)] = patch.load([100, 200])
-    plt.imshow(grid[:, :, 1])
-    plt.show()
+    glob = (
+            Path('./data/chemical-images/0-upload-daylight-solutions')
+            .glob(f'Slide{args.slide}/Region{args.region}*')
+            )
 
-    with h5py.File(outroot/'1J.hdf5', 'w') as f:
-        grid = f.create_dataset('grid', (len(rows)*480, len(cols)*480, 2))
-        for patch in patches.values():
-            dx, dy = patch.dx, patch.dy
-            col, row = patch.col, patch.row
-            grid[dx*row: dx*(row + 1), dy*col: dy*(col + 1)] = patch.load([100, 200])
-
-    with h5py.File(outroot/'1J.hdf5', 'r') as f:
-        img = f['grid'][:]
-
-    plt.imshow(img[:, :, 1])
-    plt.show()
+    stitch_regions(outpath, glob)
+    with h5py.File(outpath, 'r') as f:
+        wn = f.attrs['wavenumber'].tolist().index(1150)
+        plt.imshow(f['raw'][:, :, wn])
+        plt.savefig(outpath.parent/f'qc-{outpath.stem}.png')
