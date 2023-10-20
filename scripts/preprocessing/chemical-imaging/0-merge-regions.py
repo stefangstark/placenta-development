@@ -12,8 +12,6 @@ import argparse
 @dataclass
 class Patch:
     path: str
-    slide: int
-    region: str
     col: int
     row: int
 
@@ -34,7 +32,6 @@ def map_loc_values_to_grid(paths):
     cols = set()
     rows = set()
     for path in paths:
-        slide, region = re.search(r'Slide(\d)/Region(\w)', path).groups()
         py, px = re.search(r'\[(-?\d+)_(-?\d+)\]', path).groups()
         cols.add(int(px))
         rows.add(int(py))
@@ -60,14 +57,11 @@ def load_patches(glob):
     def iterate(paths):
 
         for path in paths:
-            slide, region = re.search(r'Slide(\d)/Region(\w)', path).groups()
             py, px = re.search(r'\[(-?\d+)_(-?\d+)\]', path).groups()
             col, row = cols.index(int(px)), rows.index(int(py))
 
             patch = Patch(
                 path=path,
-                slide=slide,
-                region=region,
                 col=col, row=row
             )
 
@@ -89,7 +83,7 @@ def load_patch_size(patches):
 
 
 def load_wn(patches):
-    'Load wn (col names) & check that it is similar across all patches'
+    '''Load wn (col names) & check that it is similar across all patches'''
     def load_single_wn(patch):
         wn = sp.io.loadmat(patch.path, variable_names='wn')['wn'].ravel()
         return wn
@@ -97,10 +91,12 @@ def load_wn(patches):
     wn = load_single_wn(patches[0])
     for patch in patches[1:]:
         assert np.array_equal(wn, load_single_wn(patch))
-    return wn
+    assert np.array_equal(wn, np.floor(wn))  # ie wn is all ints
+    return wn.astype(int)
 
 
 def load_key(patches, key):
+    '''Load value, should be shared across all patches.'''
     values = set()
     values.update([
         sp.io.loadmat(patch.path, variable_names=key)[key].item()
@@ -112,6 +108,8 @@ def load_key(patches, key):
 
 
 def stitch_regions(outpath, glob):
+    '''Merges all patches into one image
+    '''
     patches = load_patches(glob)
     nrows = max(p.row for p in patches) + 1
     ncols = max(p.col for p in patches) + 1
@@ -136,16 +134,21 @@ if __name__ == '__main__':
     parser.add_argument('slide', type=int)
     parser.add_argument('region')
     args = parser.parse_args()
-    outdir = Path('./data/chemical-images/1-merged-regions/')
-    outdir.parent.mkdir(exist_ok=True, parents=True)
-    outpath = outdir/f'sample-slide-{args.slide}-region-{args.region}.h5ad'
 
+    # patches to merge
     glob = (
             Path('./data/chemical-images/0-upload-daylight-solutions')
             .glob(f'Slide{args.slide}/Region{args.region}*')
             )
 
+    # hdf5 to write
+    outdir = Path('./data/chemical-images/1-merged-regions/')
+    outdir.parent.mkdir(exist_ok=True, parents=True)
+    outpath = outdir/f'sample-slide-{args.slide}-region-{args.region}.h5'
+
     stitch_regions(outpath, glob)
+
+    # QC: image of stitched sample
     with h5py.File(outpath, 'r') as f:
         wn = f.attrs['wavenumber'].tolist().index(1150)
         plt.imshow(f['raw'][:, :, wn])
