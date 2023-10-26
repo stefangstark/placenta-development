@@ -129,22 +129,24 @@ def stitch_regions(outpath, glob):
             grid[irow, icol] = patch.load()
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('slide', type=int)
-    parser.add_argument('region')
-    args = parser.parse_args()
-
-    # patches to merge
-    glob = (
-            Path('./data/chemical-images/0-upload-daylight-solutions')
-            .glob(f'Slide{args.slide}/Region{args.region}*')
-            )
+def parse(slide, region):
 
     # hdf5 to write
     outdir = Path('./data/chemical-images/1-merged-regions/')
     outdir.parent.mkdir(exist_ok=True, parents=True)
+    (outdir/'qc').mkdir(exist_ok=True)
+
     outpath = outdir/f'sample-slide-{args.slide}-region-{args.region}.h5'
+    qcpath = outdir/'qc'/f'{outpath.stem}.png'
+
+    if outpath.exists():
+        return
+
+    # patches to merge
+    glob = (
+            Path('./data/chemical-images/0-upload-daylight-solutions/')
+            .glob(f'Slide {slide}*/Region{region}*')
+            )
 
     stitch_regions(outpath, glob)
 
@@ -152,4 +154,15 @@ if __name__ == '__main__':
     with h5py.File(outpath, 'r') as f:
         wn = f.attrs['wavenumber'].tolist().index(1150)
         plt.imshow(f['raw'][:, :, wn])
-        plt.savefig(outpath.parent/f'qc-{outpath.stem}.png')
+        plt.savefig(qcpath)
+
+    return
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('slide', type=int)
+    parser.add_argument('region')
+    args = parser.parse_args()
+
+    parse(args.slide, args.region)
