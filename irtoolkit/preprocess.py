@@ -23,3 +23,26 @@ def denoise(signal, threshold, kernel_size, strategy):
 
     else:
         raise NotImplementedError
+
+
+def min_max_scaling(signal, wn=None):
+    shape = signal.shape
+    if len(shape) == 3:
+        signal = signal.reshape(-1, shape[2])
+
+    assert signal.shape == 2
+
+    shift = signal.min(1)[:, np.newaxis]
+    scale = signal.max(1)[:, np.newaxis] - shift
+
+    normed = (signal - shift) / scale
+
+    if len(shape) == 3:
+        return normed.reshape(shape)
+
+    return normed
+
+
+def amide_normalization(signal, wn=None, peak='I'):
+    assert peak in {'I', 'II'}
+    return
