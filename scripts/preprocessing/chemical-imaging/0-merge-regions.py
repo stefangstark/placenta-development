@@ -132,19 +132,20 @@ def stitch_regions(outpath, glob):
 def parse(slide, region):
 
     # hdf5 to write
-    outdir = Path('./data/chemical-images/1-merged-regions/')
+    outdir = Path('./data/chemical-images/merged/')
     outdir.parent.mkdir(exist_ok=True, parents=True)
-    (outdir/'qc').mkdir(exist_ok=True)
 
     outpath = outdir/f'sample-slide-{args.slide}-region-{args.region}.h5'
-    qcpath = outdir/'qc'/f'{outpath.stem}.png'
+
+    qcpath = outdir/'qc'/'0-merge-regions'/f'{outpath.stem}.png'
+    qcpath.parent.mkdir(exist_ok=True, parents=True)
 
     if outpath.exists():
         return
 
     # patches to merge
     glob = (
-            Path('./data/chemical-images/0-upload-daylight-solutions/')
+            Path('./data/chemical-images/uploaded-daylight-solutions/')
             .glob(f'Slide {slide}*/Region{region}*')
             )
 

@@ -147,6 +147,14 @@ class SlideSection:
     def extract(self, f, key):
         return f[key][self.irow, self.icol, :]
 
+    def mask(self, signal, flatten=False):
+        vals = signal[self.irow, self.icol, :]
+
+        if flatten:
+            return vals.reshape(-1, vals.shape[2])
+
+        return vals
+
     def df(self, f, key, melt=False):
         wn = f.attrs['wavenumber']
         assert len(f[key].shape) == 3

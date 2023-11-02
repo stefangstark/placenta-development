@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 from pybaselines import Baseline
+from tqdm import tqdm
 
 def extract_signal(f, key='raw', wn_start=1500, wn_end=1700):
     
@@ -80,7 +81,7 @@ def rubberband_correct(signal, wn, flavor, *args, **kwargs):
 
     assert signal.ndim == 2
     rb = np.zeros_like(signal)
-    for i, y in enumerate(signal):  # will be very slow, can vectorize
+    for i, y in enumerate(tqdm(signal, desc='rubberband')):  # will be very slow, can vectorize
         rb[i] = y - fit(y)
 
     if len(shape) == 3:
