@@ -12,10 +12,11 @@ def extract_signal(f, key='raw', wn_start=1500, wn_end=1700):
     return signal
 
 
-def denoise(signal, threshold, kernel_size, strategy):
+def denoise(mask, kernel_size, strategy):
+    if mask.dtype == bool:
+        mask = mask.astype()
 
-    kernel = np.ones((kernel_size, kernel_size), dtype=np.uint8)
-    mask = (signal > threshold).astype(np.uint8)
+    kernel = np.ones((kernel_size, kernel_size), dtype=mask.dtype)
 
     if strategy == 'opening':
         return cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
@@ -82,7 +83,7 @@ def rubberband_correct(signal, wn, flavor, *args, **kwargs):
     assert signal.ndim == 2
     rb = np.zeros_like(signal)
     for i, y in enumerate(tqdm(signal, desc='rubberband')):  # will be very slow, can vectorize
-        rb[i] = y - fit(y)
+        rb[i] = y - fit(y, *args, **kwargs)
 
     if len(shape) == 3:
         return rb.reshape(shape)

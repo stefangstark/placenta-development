@@ -1,0 +1,15 @@
+mask:
+  flavor: mint
+  key: layers/anise
+
+  extract:
+    from: 1200
+    to: 1500
+    threshold: 0.2
+    above_treshold: bg
+
+  denoise:
+    kernel_size: 9
+    method: closing
+
+  set: 0
