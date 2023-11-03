@@ -87,16 +87,22 @@ class QC:
 
         return 
 
-def main(path, flavor, input_key, pipeline):
+def main(path, flavor, pipeline):
     with h5py.File(path, 'r') as f:
+
+        sample = f.attrs['sample']
+        outpath = path.parent/f'norm-{flavor}-{sample}.h5'
+        if outpath.exists():
+            return
+
         wn = list(f.attrs['wavenumber'][:])
-        signal = f[input_key][:]
+        signal = f['image'][:]
 
-    qcer = QC(qc.get_regions(path.stem))
+
+    qcer = QC(qc.get_regions(sample))
     
-    qcer.step(signal, wn, f'input-{input_key}')
-
-    for step, kwargs in enumerate(pipeline):
+    qcer.step(signal, wn, f'input')
+    for kwargs in pipeline:
         name = kwargs.pop('step')
         if name == 'rubberband-correct':
             step = pp.rubberband_correct
@@ -108,15 +114,17 @@ def main(path, flavor, input_key, pipeline):
             raise ValueError
 
         signal = step(signal, wn, **kwargs)
+        # for box in qcer.regions:
+        #     signal[box.irow, box.icol] = step(signal[box.irow, box.icol], wn, **kwargs)
         qcer.step(signal, wn, name)
 
-    qcer.finalize(path.parent/'qc'/'1-normalize'/f'{path.stem}.png')
+    qcer.finalize(path.parent/'QC'/'1-normalize'/f'{sample}.png')
 
-    with h5py.File(path, 'r+') as f:
-        group = f.require_group('layers')
-        layer = group.require_dataset(flavor, shape=signal.shape, dtype=signal.dtype)
-        layer[:] = signal
-
+    with h5py.File(outpath, 'w') as f:
+        f.attrs['sample'] = sample
+        f.attrs['wavenumber'] = wn
+        f.create_dataset('image', data=signal)
+        
     return
 
 
@@ -133,9 +141,8 @@ if __name__ == '__main__':
         required=True)
 
     args = parser.parse_args()
-    for cfg in args.config:
-        with open(cfg, 'r') as f:
-            config = yaml.safe_load(f)['normalize'] 
-
-        for path in map(Path, args.path):
+    for path in map(Path, args.path):
+        for cfg in args.config:
+            with open(cfg, 'r') as f:
+                config = yaml.safe_load(f)['normalize'] 
             main(path, **config)

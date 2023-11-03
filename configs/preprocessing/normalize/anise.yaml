@@ -1,6 +1,5 @@
 normalize:
     flavor: anise
-    input_key: raw
     pipeline:
         - step: rubberband-correct
           flavor: asls

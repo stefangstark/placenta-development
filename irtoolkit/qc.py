@@ -26,8 +26,8 @@ def slide_1_region_J():
 
     return [fg_internal, fg_external, bg]
 
-def get_regions(stem):
-    if stem == 'sample-slide-1-region-J':
+def get_regions(sample):
+    if sample == 'slide-1-region-J':
         return slide_1_region_J()
 
     return

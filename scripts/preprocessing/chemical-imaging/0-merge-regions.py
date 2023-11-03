@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 import h5py
 import argparse
 
+from irtoolkit import viz
+
 
 @dataclass
 class Patch:
@@ -107,7 +109,7 @@ def load_key(patches, key):
     return values.pop()
 
 
-def stitch_regions(outpath, glob):
+def stitch_regions(outpath, glob, sample):
     '''Merges all patches into one image
     '''
     patches = load_patches(glob)
@@ -119,9 +121,10 @@ def stitch_regions(outpath, glob):
     shape = (nrows*patch_size, ncols*patch_size, len(wn))
 
     with h5py.File(outpath, 'w') as f:
+        f.attrs['sample'] = sample
         f.attrs['wavenumber'] = wn
         f.attrs['model'] = load_key(patches, 'model')
-        grid = f.create_dataset('raw', shape)
+        grid = f.create_dataset('image', shape)
         for patch in patches:
             col, row = patch.col, patch.row
             irow = slice(patch_size*row, patch_size*(row + 1))
@@ -131,13 +134,14 @@ def stitch_regions(outpath, glob):
 
 def parse(slide, region):
 
+    sample = f'slide-{args.slide}-region-{args.region}'
+
     # hdf5 to write
-    outdir = Path('./data/chemical-images/merged/')
-    outdir.parent.mkdir(exist_ok=True, parents=True)
+    root = Path('./data/chemical-images/merged/')
+    outpath = root/f'raw-{sample}.h5'
+    outpath.parent.mkdir(exist_ok=True, parents=True)
 
-    outpath = outdir/f'sample-slide-{args.slide}-region-{args.region}.h5'
-
-    qcpath = outdir/'qc'/'0-merge-regions'/f'{outpath.stem}.png'
+    qcpath = root/'QC'/'0-merge-regions'/f'{sample}.png'
     qcpath.parent.mkdir(exist_ok=True, parents=True)
 
     if outpath.exists():
@@ -149,13 +153,11 @@ def parse(slide, region):
             .glob(f'Slide {slide}*/Region{region}*')
             )
 
-    stitch_regions(outpath, glob)
+    stitch_regions(outpath, glob, sample)
 
     # QC: image of stitched sample
-    with h5py.File(outpath, 'r') as f:
-        wn = f.attrs['wavenumber'].tolist().index(1150)
-        plt.imshow(f['raw'][:, :, wn])
-        plt.savefig(qcpath)
+    viz.plot_sample(outpath)
+    plt.savefig(qcpath)
 
     return
 

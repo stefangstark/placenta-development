@@ -171,7 +171,7 @@ class SlideSection:
         return foo
 
 
-def plot_sample(path, key='raw', filters=None, nrows=1, axes=None):
+def plot_sample(path, filters=None, nrows=1, axes=None):
     if filters is None:
         filters = [
             (1000, 1200),
@@ -195,7 +195,7 @@ def plot_sample(path, key='raw', filters=None, nrows=1, axes=None):
 
         for ax, (wn_start, wn_end) in zip(axes.ravel(), filters):
             start, end = np.argmax(wn > wn_start), np.argmax(wn > wn_end)
-            ax.imshow(f[key][:, :, start:end].mean(2))
+            ax.imshow(f['image'][:, :, start:end].mean(2))
             ax.set_xticks([])
             ax.set_yticks([])
 
