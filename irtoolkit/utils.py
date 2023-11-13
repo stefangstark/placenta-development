@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class Image:
     def __init__(self, values, wn):
         if isinstance(wn, (int, np.integer)):
@@ -16,7 +17,6 @@ class Image:
         self.wn = wn
         self.shape = self.values.shape
 
-    
     def __getitem__(self, arg):
         x, y, wn = arg
 
@@ -28,7 +28,6 @@ class Image:
             iwn = slice(start, stop, None)
             wn = self.wn[iwn]
             return self.values.__getitem__((x, y, iwn))
-
 
         elif isinstance(wn, int):
             iwn = self.wn.index(wn)

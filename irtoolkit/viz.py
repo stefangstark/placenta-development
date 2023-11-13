@@ -8,8 +8,9 @@ from dataclasses import dataclass
 from matplotlib.patches import Rectangle
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
-from matplotlib.cm import ScalarMappable
 from math import ceil
+
+from irtoolkit import preprocess as pp
 
 
 def scale_figsize(nrows, ncols, scale=1):
@@ -76,7 +77,6 @@ def modify_legend(ax, **kwargs):
 
 
 def legend_handle(label, color, cmap="tab10", marker=None, markersize=10, **kwargs):
-
     cmap = plt.get_cmap(cmap)
     if isinstance(color, int):
         color = cmap(color)
@@ -85,8 +85,8 @@ def legend_handle(label, color, cmap="tab10", marker=None, markersize=10, **kwar
         return Patch(color=color, label=label, **kwargs)
 
     return Line2D(
-        [0],
-        [0],
+        np.array([0]),
+        np.array([0]),
         color="white",
         marker=marker,
         markersize=markersize,
@@ -103,20 +103,22 @@ def legend_from_lut(lut, order=None, **kwargs):
     return [legend_handle(key, lut[key], **kwargs) for key in order]
 
 
-def extract_signal(f, key='raw', wn_start=1500, wn_end=1700):
-    
-    wn = f.attrs['wavenumber']
+def extract_signal(f, key="raw", wn_start=1500, wn_end=1700):
+    wn = f.attrs["wavenumber"]
     start, end = np.argmax(wn > wn_start), np.argmax(wn > wn_end)
     signal = f[key][:, :, start:end].mean(2)
 
     return signal
 
 
-def lineplot(xyz, wn, errorbar='pi', **kwargs):
+def lineplot(xyz, wn, errorbar="pi", **kwargs):
     assert len(xyz.shape) == 3
     assert xyz.shape[2] == len(wn)
     long = pd.DataFrame(xyz.reshape(-1, xyz.shape[2]), columns=wn).melt()
-    sns.lineplot(data=long, x='variable', y='value', errorbar=errorbar, **kwargs)
+    sns.lineplot(
+            data=long, x="variable", y="value",
+            errorbar=errorbar,
+            **kwargs)
     return
 
 
@@ -124,10 +126,15 @@ def lineplot(xyz, wn, errorbar='pi', **kwargs):
 class SlideSection:
     icol: ...
     irow: ...
-    color: ... = 'lightgrey'
+    color: ... = "lightgrey"
     name: ... = None
 
-    def make_patch(self, edgecolor=None, facecolor='none', linewidth=1, **kwargs):
+    def make_patch(
+            self,
+            edgecolor=None, facecolor="none",
+            linewidth=1,
+            **kwargs):
+
         if edgecolor is None:
             edgecolor = self.color
 
@@ -136,16 +143,23 @@ class SlideSection:
         dr = self.irow.stop - self.irow.start
 
         patch = Rectangle(
-            (c, r), dc, dr,
+            (c, r),
+            dc,
+            dr,
             edgecolor=edgecolor,
             facecolor=facecolor,
             linewidth=linewidth,
-            **kwargs)
+            **kwargs,
+        )
 
         return patch
 
-    def extract(self, f, key):
-        return f[key][self.irow, self.icol, :]
+    def extract(self, f, key="image", wnrange=None):
+        if wnrange is None:
+            return f[key][self.irow, self.icol, :]
+
+        start, stop = wnrange
+        return pp.average_signal(f, key, self.irow, self.icol, start, stop)
 
     def mask(self, signal, flatten=False):
         vals = signal[self.irow, self.icol, :]
@@ -156,13 +170,13 @@ class SlideSection:
         return vals
 
     def df(self, f, key, melt=False):
-        wn = f.attrs['wavenumber']
+        wn = f.attrs["wavenumber"]
         assert len(f[key].shape) == 3
         assert f[key].shape[-1] == len(wn)
 
         foo = pd.DataFrame(
             self.extract(f, key).reshape(-1, len(wn)),
-            columns=pd.Index(wn, name='wn')
+            columns=pd.Index(wn, name="wn")
         )
 
         if melt:
@@ -171,34 +185,33 @@ class SlideSection:
         return foo
 
 
-def plot_sample(path, filters=None, nrows=1, axes=None):
+def plot_sample(path, filters=None, axes=None):
     if filters is None:
         filters = [
-            (1000, 1200),
-            (1200, 1300),
-            (1350, 1500),
-            (1500, 1600),
-            (1600, 1700)
-        ]
+                (1000, 1200),
+                (1200, 1300),
+                (1350, 1500),
+                (1500, 1600),
+                (1600, 1700)]
 
-
-    ncols = len(filters) // nrows
-    
     if axes is None:
         _, axes = plt.subplots(
-            1, len(filters),
-            figsize=(6.8*len(filters), 4.8*1),
-            sharex=False, sharey=False)
+            1,
+            len(filters),
+            figsize=(6.8 * len(filters), 4.8 * 1),
+            sharex=False,
+            sharey=False,
+        )
 
-    with h5py.File(path, 'r') as f:
-        wn = f.attrs['wavenumber']
+    with h5py.File(path, "r") as f:
+        wn = f.attrs["wavenumber"]
 
         for ax, (wn_start, wn_end) in zip(axes.ravel(), filters):
             start, end = np.argmax(wn > wn_start), np.argmax(wn > wn_end)
-            ax.imshow(f['image'][:, :, start:end].mean(2))
+            ax.imshow(f["image"][:, :, start:end].mean(2))
             ax.set_xticks([])
             ax.set_yticks([])
 
-            ax.set_title(f'({wn_start}, {wn_end})')
+            ax.set_title(f"({wn_start}, {wn_end})")
 
     return axes
