@@ -4,11 +4,7 @@ from pybaselines import Baseline
 from tqdm import tqdm
 
 
-def average_signal(
-        f, key="image",
-        irow=None, icol=None,
-        wn_start=1600, wn_end=1700):
-
+def average_signal(f, key="image", irow=None, icol=None, wn_start=1640, wn_end=1660):
     if irow is None:
         irow = slice(None)
 
@@ -37,26 +33,32 @@ def denoise(mask, kernel_size, strategy):
     raise NotImplementedError
 
 
-def min_max_scale(signal, wn=None):
-    shape = signal.shape
-    if len(shape) == 3:
-        signal = signal.reshape(-1, shape[2])
+def signal_to_noise(values, wn, positive_range, negative_range, threshold):
 
-    assert signal.ndim == 2
+    def average(start, stop):
+        istart, istop = np.argmax(wn > start), np.argmax(wn > stop)
+        return values[:, istart:istop].mean(1)
 
-    shift = signal.min(1)[:, np.newaxis]
-    scale = signal.max(1)[:, np.newaxis] - shift
+    pos = average(*positive_range)
+    neg = average(*negative_range)
+    snr = pos - neg
+    keep = snr > threshold
 
-    normed = (signal - shift) / scale
-
-    if len(shape) == 3:
-        return normed.reshape(shape)
-
-    return normed
+    return keep, (snr, pos, neg)
 
 
-def rubberband_correct(signal, wn, flavor, *args, **kwargs):
-    assert signal.shape[-1] == len(wn)
+def min_max_scale(values):
+    assert values.ndim == 2
+
+    shift = values.min(1)[:, np.newaxis]
+    scale = values.max(1)[:, np.newaxis] - shift
+
+    values = (values - shift) / scale
+
+    return values 
+
+
+def baseline_correction(values, wn, flavor, *args, **kwargs):
     fitter = Baseline(wn, check_finite=False)
 
     if flavor == "modpoly":
@@ -86,19 +88,10 @@ def rubberband_correct(signal, wn, flavor, *args, **kwargs):
 
     else:
         raise ValueError
-
-    shape = signal.shape
-    if len(shape) == 3:
-        signal = signal.reshape(-1, len(wn))
-
-    assert signal.ndim == 2
-    rb = np.zeros_like(signal)
+    corrected = np.zeros_like(values)
     for i, y in enumerate(
-        tqdm(signal, desc="rubberband")
+        tqdm(values, desc="baseline")
     ):  # will be very slow, can vectorize
-        rb[i] = y - fit(y, *args, **kwargs)
+        corrected[i] = y - fit(y, *args, **kwargs)
 
-    if len(shape) == 3:
-        return rb.reshape(shape)
-
-    return rb
+    return corrected

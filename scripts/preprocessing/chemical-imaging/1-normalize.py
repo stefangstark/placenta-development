@@ -1,12 +1,14 @@
 import yaml
 import pandas as pd
+from copy import deepcopy
 import h5py
 import argparse
 from pathlib import Path
-from irtoolkit import preprocess as pp, qc, viz
+from irtoolkit import preprocess as pp, viz
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 import seaborn as sns
+import numpy as np
 
 
 class QC:
@@ -23,10 +25,10 @@ class QC:
                 df = (
                     pd.DataFrame(box.mask(signal, flatten=True), columns=wn)
                     .sample(1000, random_state=1001231)
-                    .rename_axis(index='pixel')
+                    .rename_axis(index="pixel")
                     .reset_index()
-                    )
-                df['region'] = box.name
+                )
+                df["region"] = box.name
                 yield df
 
         df = pd.concat(iterate())
@@ -42,107 +44,107 @@ class QC:
         outpath.parent.mkdir(exist_ok=True, parents=True)
 
         ncols = len(self.steps)
-        fig, axes = viz.create_axes_grid(2*ncols, ncols, sharex=False, sharey=False)
-        for ax, (step, df) in zip(axes[0], self.steps):
+        _, axes = viz.create_axes_grid(2 * ncols, ncols, sharex=False, sharey=False)
+        for ax, (_, df) in zip(axes[0], self.steps):
             melt = (
-                df
-                .set_index(['pixel', 'region'])
-                .melt(ignore_index=False, var_name='wn')
+                df.set_index(["pixel", "region"])
+                .melt(ignore_index=False, var_name="wn")
                 .reset_index()
             )
-            melt['wn'] = melt['wn'].astype(int)
+            melt["wn"] = melt["wn"].astype(int)
             sns.lineplot(
-                    data=melt,
-                    x='wn', y='value',
-                    hue='region',
-                    errorbar='pi',
-                    legend=False,
-                    ax=ax)
-            
-        for ax, (step, df) in zip(axes[1], self.steps):
-
-            pca = PCA(2)
-            pcs = pd.DataFrame(
-                pca.fit_transform(df.drop(columns=['pixel', 'region']))
+                data=melt,
+                x="wn",
+                y="value",
+                hue="region",
+                errorbar="pi",
+                legend=False,
+                ax=ax,
             )
-            pcs['region'] = df['region'].values
+
+        for ax, (_, df) in zip(axes[1], self.steps):
+            pca = PCA(2)
+            pcs = pd.DataFrame(pca.fit_transform(df.drop(columns=["pixel", "region"])))
+            pcs["region"] = df["region"].values
 
             sns.scatterplot(
                 data=pcs.sample(frac=1),  # shuffle dataset
-                x=0, y=1,
-                hue='region',
+                x=0,
+                y=1,
+                hue="region",
                 palette=palette,
-                alpha=0.25, s=5,
+                alpha=0.25,
+                s=5,
                 legend=False,
-                ax=ax
+                ax=ax,
             )
 
         axes[0, -1].legend(
             handles=viz.legend_from_lut(palette),
             bbox_to_anchor=(1, 1),
-            loc='upper left',
-            title='Region')
+            loc="upper left",
+            title="Region",
+        )
 
-        plt.savefig(outpath, bbox_inches='tight')
+        plt.savefig(outpath, bbox_inches="tight")
 
-        return 
-
-def main(path, flavor, pipeline):
-    with h5py.File(path, 'r') as f:
-
-        sample = f.attrs['sample']
-        outpath = path.parent/f'norm-{flavor}-{sample}.h5'
-        if outpath.exists():
-            return
-
-        wn = list(f.attrs['wavenumber'][:])
-        signal = f['image'][:]
+        return
 
 
-    qcer = QC(qc.get_regions(sample))
+class Image:
+    def __init__(self, image, wn):
+        self.shape = image.shape
+        self.values = image.reshape(-1, len(wn))
+        self.wn = wn
+
+    def average(self, start, stop):
+        istart, istop = np.argmax(self.wn > start), np.argmax(self.wn > stop)
+        return self.values[:, istart:istop].mean(1)
+
+
+def main(path, config):
+    flavor = config["flavor"]
+    pipeline = deepcopy(config["pipeline"])
+
+    with h5py.File(path, "r") as f:
+        sample = f.attrs["sample"]
+        outpath = path.parent / f"norm-{flavor}-{sample}.h5"
+
+        image = Image(f["image"][:], f.attrs["wavenumber"])
+
+    qcdir = outpath.parent / 'QC' / '1-normalize'
+    qcdir.mkdir(exist_ok=True, parents=True)
+
+    keep, _ = pp.signal_to_noise(image.values, image.wn, **config["mask_fg"])
+    image.values[~keep] = np.nan
     
-    qcer.step(signal, wn, f'input')
     for kwargs in pipeline:
-        name = kwargs.pop('step')
-        if name == 'rubberband-correct':
-            step = pp.rubberband_correct
+        name = kwargs.pop("step")
+        if name == "baseline_correction":
+            image.values[keep] = pp.baseline_correction(image.values[keep], image.wn, **kwargs)
 
-        elif name == 'min-max-scale':
-            step = pp.min_max_scale
+        elif name == "min_max_scale":
+            image.values[keep] = pp.min_max_scale(image.values[keep], **kwargs)
 
         else:
             raise ValueError
 
-        signal = step(signal, wn, **kwargs)
-        # for box in qcer.regions:
-        #     signal[box.irow, box.icol] = step(signal[box.irow, box.icol], wn, **kwargs)
-        qcer.step(signal, wn, name)
+    with h5py.File(outpath, "w") as f:
+        f.attrs["sample"] = sample
+        f.attrs["wavenumber"] = image.wn
+        f.create_dataset("image", data=image.values.reshape(image.shape))
 
-    qcer.finalize(path.parent/'QC'/'1-normalize'/f'{sample}.png')
-
-    with h5py.File(outpath, 'w') as f:
-        f.attrs['sample'] = sample
-        f.attrs['wavenumber'] = wn
-        f.create_dataset('image', data=signal)
-        
     return
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--path', nargs='+',
-        help='Apply to path (*s)',
-        required=True)
-
-    parser.add_argument(
-        '--config', nargs='+',
-        help='Config (*s) to use',
-        required=True)
+    parser.add_argument("--path", nargs="+", help="Apply to path (*s)", required=True)
+    parser.add_argument("--config", nargs="+", help="Config (*s) to use", required=True)
 
     args = parser.parse_args()
     for path in map(Path, args.path):
         for cfg in args.config:
-            with open(cfg, 'r') as f:
-                config = yaml.safe_load(f)['normalize'] 
-            main(path, **config)
+            with open(cfg, "r") as f:
+                config = yaml.safe_load(f)["normalize"]
+            main(path, config)

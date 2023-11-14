@@ -1,9 +1,0 @@
-normalize:
-    flavor: anise
-    pipeline:
-        - step: rubberband-correct
-          flavor: asls
-          lam: 1.e+7
-          p: 0.02
-
-        - step: min-max-scale

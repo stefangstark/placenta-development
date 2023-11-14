@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from dataclasses import dataclass
 
 from matplotlib.patches import Rectangle
 from matplotlib.patches import Patch
@@ -115,26 +114,26 @@ def lineplot(xyz, wn, errorbar="pi", **kwargs):
     assert len(xyz.shape) == 3
     assert xyz.shape[2] == len(wn)
     long = pd.DataFrame(xyz.reshape(-1, xyz.shape[2]), columns=wn).melt()
-    sns.lineplot(
-            data=long, x="variable", y="value",
-            errorbar=errorbar,
-            **kwargs)
+    sns.lineplot(data=long, x="variable", y="value", errorbar=errorbar, **kwargs)
     return
 
 
-@dataclass
 class SlideSection:
-    icol: ...
-    irow: ...
-    color: ... = "lightgrey"
-    name: ... = None
+    def __init__(self, icol, irow, color="lightgrey", name=None, shape=None):
+        self.icol = icol
+        self.irow = irow
+        self.color = color
+        self.name = name
 
-    def make_patch(
-            self,
-            edgecolor=None, facecolor="none",
-            linewidth=1,
-            **kwargs):
+        self.shape = shape
+        if shape is not None:
+            dx, dy, _ = shape
+            index = np.arange(dx * dy)
+            self.index = self.mask(index.reshape(dx, dy), flatten=True)
+            self.bitmask = np.in1d(index, self.index)
 
+
+    def make_patch(self, edgecolor=None, facecolor="none", linewidth=1, **kwargs):
         if edgecolor is None:
             edgecolor = self.color
 
@@ -175,8 +174,7 @@ class SlideSection:
         assert f[key].shape[-1] == len(wn)
 
         foo = pd.DataFrame(
-            self.extract(f, key).reshape(-1, len(wn)),
-            columns=pd.Index(wn, name="wn")
+            self.extract(f, key).reshape(-1, len(wn)), columns=pd.Index(wn, name="wn")
         )
 
         if melt:
@@ -187,12 +185,7 @@ class SlideSection:
 
 def plot_sample(path, filters=None, axes=None):
     if filters is None:
-        filters = [
-                (1000, 1200),
-                (1200, 1300),
-                (1350, 1500),
-                (1500, 1600),
-                (1600, 1700)]
+        filters = [(1000, 1200), (1200, 1300), (1350, 1500), (1500, 1600), (1600, 1700)]
 
     if axes is None:
         _, axes = plt.subplots(
