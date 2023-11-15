@@ -1,9 +1,10 @@
-from irtoolkit import io, utils
-import numpy as np
-import seaborn as sns
 import h5py
-from matplotlib.patches import Rectangle
+import numpy as np
 import pandas as pd
+import seaborn as sns
+from matplotlib.patches import Rectangle
+
+from irtoolkit import io, utils
 
 
 class SlideSection:
@@ -19,7 +20,6 @@ class SlideSection:
             index = np.arange(dx * dy).reshape(dx, dy)
             self.index = index[self.irow, self.icol].ravel()
             self.bitmask = np.in1d(index, self.index)
-
 
     def make_patch(self, edgecolor=None, facecolor="none", linewidth=1, **kwargs):
         if edgecolor is None:
@@ -74,7 +74,7 @@ class SlideSection:
 
 def slide_1_region_J():
     palette = sns.color_palette()
-    with h5py.File(io.path("slide-1-region-J")) as f:
+    with h5py.File(io.path("1J")) as f:
         shape = f["image"].shape
 
     fg_internal = SlideSection(
@@ -107,7 +107,7 @@ def slide_1_region_J():
 
 
 def get_regions(sample):
-    if sample == "slide-1-region-J":
+    if sample == "1J":
         return slide_1_region_J()
 
     return

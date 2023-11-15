@@ -1,0 +1,9 @@
+cluster:
+  flavor: kmeans
+  pca_project:
+    n_components: 5
+
+  method:
+    name: kmeans-ablation
+    ks: [3, 4, 5, 6, 7, 8]
+    

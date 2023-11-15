@@ -1,20 +1,27 @@
-import yaml
-import pandas as pd
-from copy import deepcopy
-import h5py
 import argparse
+from copy import deepcopy
 from pathlib import Path
-from irtoolkit import preprocess as pp, viz, qc
-from sklearn.decomposition import PCA
+
+import h5py
 import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
+import pandas as pd
+import seaborn as sns
+import yaml
+from sklearn.decomposition import PCA
+
+from irtoolkit import io
+from irtoolkit import preprocess as pp
+from irtoolkit import qc, viz
 from irtoolkit.utils import Image
 
 
 class QC:
     def __init__(self, regions):
         self.regions = regions
+        if regions is None:
+            return
+
         self.steps = list()
         self.palette = {r.name: r.color for r in regions}
 
@@ -31,6 +38,9 @@ class QC:
         )
 
     def qc_fgmask(self, outpath, image, keep, parts, thold):
+        if self.regions is None:
+            return
+
         snr, pos, neg = parts
         index = self.labels.index
 
@@ -156,17 +166,17 @@ def main(path, config, qc_only=False):
 
     with h5py.File(path, "r") as f:
         sample = f.attrs["sample"]
-        outpath = path.parent / f"norm-{flavor}-{sample}.h5"
+        outpath = io.path(sample, flavor)
 
         image = Image(f["image"][:], f.attrs["wavenumber"])
 
-    qcdir = outpath.parent / "QC" / "1-normalize"
+    qcdir = io.qcroot("1-normalize")
     qcdir.mkdir(exist_ok=True, parents=True)
     qcer = QC(qc.get_regions(sample))
 
     keep, parts = pp.signal_to_noise(image.values, image.wn, **config["mask_fg"])
     qcer.qc_fgmask(
-        qcdir / f"{sample}-{flavor}-fgmask.png",
+        qcdir / f"{outpath.stem}-fgmask.png",
         image,
         keep,
         parts,
@@ -176,6 +186,7 @@ def main(path, config, qc_only=False):
     image.values[~keep] = np.nan
 
     if qc_only:
+        assert qcer.regions is not None
         keep = qcer.sampled_labels.index
 
     qcer.qc_pipeline_step(image, "raw")
@@ -195,7 +206,7 @@ def main(path, config, qc_only=False):
 
         qcer.qc_pipeline_step(image, step)
 
-    qcer.finalize_pipeline(qcdir / f"{sample}-{flavor}-pipeline.png")
+    qcer.finalize_pipeline(qcdir / f"{outpath.stem}-pipeline.png")
 
     if qc_only:
         return
