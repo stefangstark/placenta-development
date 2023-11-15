@@ -12,3 +12,4 @@ normalize:
       lam: 1.0e+7
       p: 0.02
     - step: min_max_scale
+
