@@ -128,7 +128,7 @@ def stitch_regions(outpath, glob, sample):
 
 
 def parse(slide, region):
-    sample = f"slide-{args.slide}-region-{args.region}"
+    sample = f"{slide}{region}"
 
     # hdf5 to write
     outpath = io.path(sample, "raw")
@@ -141,7 +141,7 @@ def parse(slide, region):
         return
 
     # patches to merge
-    glob = Path("./data/chemical-images/uploaded-daylight-solutions/").glob(
+    glob = Path("./data/chemical-images/Uploaded/").glob(
         f"Slide {slide}*/Region{region}*"
     )
 
