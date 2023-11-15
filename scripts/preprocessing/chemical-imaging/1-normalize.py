@@ -13,11 +13,10 @@ from irtoolkit.utils import Image
 
 
 class QC:
-    def __init__(self, regions, config):
+    def __init__(self, regions):
         self.regions = regions
         self.steps = list()
         self.palette = {r.name: r.color for r in regions}
-        self.config = config
 
         self.labels = (
             pd.concat([pd.Series(r.name, index=r.index) for r in self.regions])
@@ -31,7 +30,7 @@ class QC:
             500, random_state=1001287
         )
 
-    def qc_fgmask(self, outpath, image, keep, parts):
+    def qc_fgmask(self, outpath, image, keep, parts, thold):
         snr, pos, neg = parts
         index = self.labels.index
 
@@ -55,7 +54,7 @@ class QC:
             palette=self.palette,
             ax=ax,
         )
-        ax.axvline(config["mask_fg"]["threshold"], color="lightgrey")
+        ax.axvline(thold, color="lightgrey")
         ax.set_title("signal to noise cutoff")
 
         ax = axes[0, 1]
@@ -163,10 +162,16 @@ def main(path, config, qc_only=False):
 
     qcdir = outpath.parent / "QC" / "1-normalize"
     qcdir.mkdir(exist_ok=True, parents=True)
-    qcer = QC(qc.get_regions(sample), config)
+    qcer = QC(qc.get_regions(sample))
 
     keep, parts = pp.signal_to_noise(image.values, image.wn, **config["mask_fg"])
-    qcer.qc_fgmask(qcdir / f"{sample}-{flavor}-fgmask.png", image, keep, parts)
+    qcer.qc_fgmask(
+        qcdir / f"{sample}-{flavor}-fgmask.png",
+        image,
+        keep,
+        parts,
+        config["mask_fg"]["threshold"],
+    )
 
     image.values[~keep] = np.nan
 
