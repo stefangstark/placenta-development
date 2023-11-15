@@ -4,19 +4,6 @@ from pybaselines import Baseline
 from tqdm import tqdm
 
 
-def average_signal(f, key="image", irow=None, icol=None, wn_start=1640, wn_end=1660):
-    if irow is None:
-        irow = slice(None)
-
-    if icol is None:
-        icol = slice(None)
-
-    wn = f.attrs["wavenumber"][:]
-    start, end = np.argmax(wn > wn_start), np.argmax(wn > wn_end)
-    signal = f[key][irow, icol, start:end].mean(2)
-
-    return signal
-
 
 def denoise(mask, kernel_size, strategy):
     if mask.dtype == bool:
