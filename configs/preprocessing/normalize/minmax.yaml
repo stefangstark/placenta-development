@@ -1,0 +1,14 @@
+normalize:
+  flavor: minmax
+
+  mask_fg:
+    positive_range: [1640, 1660]
+    negative_range: [1090, 1110]
+    threshold: 0
+
+  pipeline:
+    - step: baseline_correction
+      flavor: asls
+      lam: 1.0e+7
+      p: 0.02
+    - step: min_max_scale

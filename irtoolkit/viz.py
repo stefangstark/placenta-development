@@ -1,15 +1,10 @@
-import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-
-from matplotlib.patches import Rectangle
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 from math import ceil
-
-from irtoolkit import preprocess as pp
 
 
 def scale_figsize(nrows, ncols, scale=1):
@@ -116,95 +111,3 @@ def lineplot(xyz, wn, errorbar="pi", **kwargs):
     long = pd.DataFrame(xyz.reshape(-1, xyz.shape[2]), columns=wn).melt()
     sns.lineplot(data=long, x="variable", y="value", errorbar=errorbar, **kwargs)
     return
-
-
-class SlideSection:
-    def __init__(self, icol, irow, color="lightgrey", name=None, shape=None):
-        self.icol = icol
-        self.irow = irow
-        self.color = color
-        self.name = name
-
-        self.shape = shape
-        if shape is not None:
-            dx, dy, _ = shape
-            index = np.arange(dx * dy)
-            self.index = self.mask(index.reshape(dx, dy), flatten=True)
-            self.bitmask = np.in1d(index, self.index)
-
-
-    def make_patch(self, edgecolor=None, facecolor="none", linewidth=1, **kwargs):
-        if edgecolor is None:
-            edgecolor = self.color
-
-        (c, r) = (self.icol.start, self.irow.start)
-        dc = self.icol.stop - self.icol.start
-        dr = self.irow.stop - self.irow.start
-
-        patch = Rectangle(
-            (c, r),
-            dc,
-            dr,
-            edgecolor=edgecolor,
-            facecolor=facecolor,
-            linewidth=linewidth,
-            **kwargs,
-        )
-
-        return patch
-
-    def extract(self, f, key="image", wnrange=None):
-        if wnrange is None:
-            return f[key][self.irow, self.icol, :]
-
-        start, stop = wnrange
-        return pp.average_signal(f, key, self.irow, self.icol, start, stop)
-
-    def mask(self, signal, flatten=False):
-        vals = signal[self.irow, self.icol, :]
-
-        if flatten:
-            return vals.reshape(-1, vals.shape[2])
-
-        return vals
-
-    def df(self, f, key, melt=False):
-        wn = f.attrs["wavenumber"]
-        assert len(f[key].shape) == 3
-        assert f[key].shape[-1] == len(wn)
-
-        foo = pd.DataFrame(
-            self.extract(f, key).reshape(-1, len(wn)), columns=pd.Index(wn, name="wn")
-        )
-
-        if melt:
-            return foo.melt(ignore_index=False).reset_index()
-
-        return foo
-
-
-def plot_sample(path, filters=None, axes=None):
-    if filters is None:
-        filters = [(1000, 1200), (1200, 1300), (1350, 1500), (1500, 1600), (1600, 1700)]
-
-    if axes is None:
-        _, axes = plt.subplots(
-            1,
-            len(filters),
-            figsize=(6.8 * len(filters), 4.8 * 1),
-            sharex=False,
-            sharey=False,
-        )
-
-    with h5py.File(path, "r") as f:
-        wn = f.attrs["wavenumber"]
-
-        for ax, (wn_start, wn_end) in zip(axes.ravel(), filters):
-            start, end = np.argmax(wn > wn_start), np.argmax(wn > wn_end)
-            ax.imshow(f["image"][:, :, start:end].mean(2))
-            ax.set_xticks([])
-            ax.set_yticks([])
-
-            ax.set_title(f"({wn_start}, {wn_end})")
-
-    return axes
