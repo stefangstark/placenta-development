@@ -1,10 +1,14 @@
+from math import ceil
+
+import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
-from math import ceil
+from matplotlib.patches import Patch
+
+from irtoolkit import utils
 
 
 def scale_figsize(nrows, ncols, scale=1):
@@ -111,3 +115,28 @@ def lineplot(xyz, wn, errorbar="pi", **kwargs):
     long = pd.DataFrame(xyz.reshape(-1, xyz.shape[2]), columns=wn).melt()
     sns.lineplot(data=long, x="variable", y="value", errorbar=errorbar, **kwargs)
     return
+
+
+def plot_sample(path, filters=None, nrows=1, axes=None):
+    if filters is None:
+        filters = [(1000, 1200), (1200, 1300), (1350, 1500), (1500, 1600), (1600, 1700)]
+
+    if axes is None:
+        _, axes = plt.subplots(
+            1,
+            len(filters),
+            figsize=(6.8 * len(filters), 4.8 * 1),
+            sharex=False,
+            sharey=False,
+        )
+
+    with h5py.File(path, "r") as f:
+        for ax, (start, stop) in zip(axes.ravel(), filters):
+            signal = utils.average_signal(f, start=start, stop=stop)
+            ax.imshow(signal)
+            ax.set_xticks([])
+            ax.set_yticks([])
+
+            ax.set_title(f"({start}, {stop})")
+
+    return axes
