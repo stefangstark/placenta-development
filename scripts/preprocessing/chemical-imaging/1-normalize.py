@@ -9,6 +9,7 @@ from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+from irtoolkit.utils import Image
 
 
 class QC:
@@ -148,17 +149,6 @@ class QC:
         plt.savefig(outpath, bbox_inches="tight")
 
         return
-
-
-class Image:
-    def __init__(self, image, wn):
-        self.shape = image.shape
-        self.values = image.reshape(-1, len(wn))
-        self.wn = wn
-
-    def average_signal(self, start, stop):
-        istart, istop = np.argmax(self.wn > start), np.argmax(self.wn > stop)
-        return self.values[:, istart:istop].mean(1)
 
 
 def main(path, config, qc_only=False):

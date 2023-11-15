@@ -10,8 +10,10 @@ class Image:
     def average_signal(self, start, stop):
         return self.values[:, wnrange(self.wn, start, stop)].mean(1)
 
+
 def wnrange(wn, start, stop):
     return slice(np.argmax(wn > start), np.argmax(wn > stop))
+
 
 def average_signal(f, key="image", irow=None, icol=None, start=1640, stop=1660):
     wn = f.attrs["wavenumber"][:]
