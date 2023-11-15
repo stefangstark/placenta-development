@@ -1,7 +1,9 @@
 # !/usr/bin/python3
-
+import os
 from setuptools import setup, find_packages
 
+with open('requirements.txt') as f:
+    required = f.read().splitlines()
 
 setup(
     name="irtoolkit",
@@ -14,6 +16,6 @@ setup(
     packages=find_packages(),
     test_suite="nose.collector",
     tests_require=["nose"],
-    install_requires=[],
+    install_requires=required,
     zip_safe=False,
 )

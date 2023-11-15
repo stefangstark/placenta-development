@@ -19,6 +19,12 @@ def wnslice(wn, start, stop):
 
 
 def average_signal(f, key="image", irow=None, icol=None, start=1640, stop=1660):
+    if irow is None:
+        irow = slice(None)
+
+    if icol is None:
+        icol = slice(None)
+
     wn = f.attrs["wavenumber"][:]
     iwn = wnslice(wn, start, stop)
     signal = f[key][irow, icol, iwn].mean(2)
