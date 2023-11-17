@@ -137,8 +137,8 @@ def parse(slide, region):
     qcpath = io.qcroot("0-merge-regions") / f"sample-{sample}.png"
     qcpath.parent.mkdir(exist_ok=True, parents=True)
 
-    if outpath.exists():
-        return
+    if outpath.exists() and qcpath.exists():
+        pass
 
     # patches to merge
     glob = Path("./data/chemical-images/Uploaded/").glob(
@@ -156,8 +156,11 @@ def parse(slide, region):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("slide", type=int)
-    parser.add_argument("region")
+    parser.add_argument("sample", nargs="+")
     args = parser.parse_args()
 
-    parse(args.slide, args.region)
+    for sample in args.sample:
+        assert len(sample) == 2
+        slide, region = sample
+        slide = int(slide)
+        parse(slide, region)
