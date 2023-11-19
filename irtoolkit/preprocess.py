@@ -4,7 +4,6 @@ from pybaselines import Baseline
 from tqdm import tqdm
 
 
-
 def denoise(mask, kernel_size, strategy):
     if mask.dtype == bool:
         mask = mask.astype()
@@ -21,7 +20,6 @@ def denoise(mask, kernel_size, strategy):
 
 
 def signal_to_noise(values, wn, positive_range, negative_range, threshold):
-
     def average(start, stop):
         istart, istop = np.argmax(wn > start), np.argmax(wn > stop)
         return values[:, istart:istop].mean(1)
@@ -42,7 +40,7 @@ def min_max_scale(values):
 
     values = (values - shift) / scale
 
-    return values 
+    return values
 
 
 def baseline_correction(values, wn, flavor, *args, **kwargs):
@@ -75,10 +73,10 @@ def baseline_correction(values, wn, flavor, *args, **kwargs):
 
     else:
         raise ValueError
+
+    # HACK: computes bl individually over for loop, very slow
     corrected = np.zeros_like(values)
-    for i, y in enumerate(
-        tqdm(values, desc="baseline")
-    ):  # will be very slow, can vectorize
+    for i, y in enumerate(tqdm(values, desc="baseline")):
         corrected[i] = y - fit(y, *args, **kwargs)
 
     return corrected

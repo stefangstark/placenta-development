@@ -1,9 +1,11 @@
 cluster:
   flavor: kmeans
-  pca_project:
+  
+  feature_extraction:
+    style: pca
     n_components: 5
 
   method:
-    name: kmeans-ablation
+    style: kmeans-ablation
     ks: [3, 4, 5, 6, 7, 8]
     
