@@ -100,9 +100,6 @@ def main(outpath, qcpath, image, config, qconly=False):
 
 
 def inputs(args):
-    outroot = Path("./data/chemical-images/clusters/")
-    outroot.mkdir(exist_ok=True, parents=True)
-
     qcroot = io.qcroot("2-cluster")
     qcroot.mkdir(exist_ok=True, parents=True)
 
@@ -113,8 +110,10 @@ def inputs(args):
                 flavor = config.get("flavor", cfg.stem)
 
             with h5py.File(inpath, "r") as f:
-                outpath = outroot / f"cluster-{inpath.stem}-{flavor}.h5"
-                qcpath = qcroot / f"{clusterpath.stem}.png"
+                outpath = io.cluster(f.attrs["sample"], f.attrs["norm"], flavor)
+                outpath.parent.mkdir(exist_ok=True, parents=True)
+
+                qcpath = qcroot / f"{outpath.stem}.png"
                 if outpath.exists() and qcpath.exists():
                     continue
                 image = Image(f["image"][:], f.attrs["wavenumber"])

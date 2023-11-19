@@ -117,7 +117,7 @@ def lineplot(xyz, wn, errorbar="pi", **kwargs):
     return
 
 
-def plot_sample(path, filters=None, nrows=1, axes=None):
+def plot_sample(path, filters=None, axes=None):
     if filters is None:
         filters = [(1000, 1200), (1200, 1300), (1350, 1500), (1500, 1600), (1600, 1700)]
 

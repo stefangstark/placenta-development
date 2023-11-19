@@ -134,7 +134,7 @@ def parse(slide, region):
     outpath = io.path(sample, "raw")
     outpath.parent.mkdir(exist_ok=True, parents=True)
 
-    qcpath = io.qcroot("0-merge-regions") / f"sample-{sample}.png"
+    qcpath = io.qcroot("0-merge-regions") / f"{outpath.stem}.png"
     qcpath.parent.mkdir(exist_ok=True, parents=True)
 
     if outpath.exists() and qcpath.exists():

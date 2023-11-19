@@ -214,6 +214,7 @@ def main(path, config, qc_only=False):
     with h5py.File(outpath, "w") as f:
         f.attrs["sample"] = sample
         f.attrs["wavenumber"] = image.wn
+        f.attrs["norm"] = flavor
         f.create_dataset("image", data=image.values.reshape(image.shape))
 
     return
