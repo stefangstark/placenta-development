@@ -8,7 +8,7 @@ import seaborn as sns
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
-from irtoolkit import utils
+from .. import utils
 
 
 def scale_figsize(nrows, ncols, scale=1):
