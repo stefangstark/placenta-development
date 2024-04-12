@@ -8,7 +8,7 @@ setup(
     name="irtoolkit",
     version="0.1",
     description="Toolkit for chemical imaging",
-    url="https://github.com/stefangstark/mouse-placenta-development",
+    url="https://github.com/stefangstark/placenta-development",
     author="Stefan G. Stark",
     author_email="starks@ethz.ch",
     license="BSD",
